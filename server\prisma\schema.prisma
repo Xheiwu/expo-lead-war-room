@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String       @id @default(cuid())
+  name         String
+  email        String       @unique
+  passwordHash String
+  role         String
+  salesperson  Salesperson?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model Event {
+  id               String        @id @default(cuid())
+  name             String
+  location         String?
+  targetLeads      Int           @default(0)
+  startsAt         DateTime
+  endsAt           DateTime
+  dailySummaryTime String        @default("18:00")
+  isActive         Boolean       @default(true)
+  salespeople      Salesperson[]
+  leads            Lead[]
+  reminders        Reminder[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model Salesperson {
+  id          String   @id @default(cuid())
+  userId      String?  @unique
+  eventId     String
+  name        String
+  phone       String?
+  team        String?
+  publicToken String   @unique
+  targetLeads Int      @default(0)
+  user        User?    @relation(fields: [userId], references: [id])
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  leads       Lead[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([eventId])
+}
+
+model Lead {
+  id               String          @id @default(cuid())
+  eventId          String
+  salespersonId    String
+  name             String
+  phone            String
+  company          String?
+  title            String?
+  wechat           String?
+  interestedProduct String?
+  purchaseIntent   String          @default("UNKNOWN")
+  note             String?
+  consentToContact Boolean
+  status           String          @default("UNFOLLOWED")
+  submittedAt      DateTime        @default(now())
+  lastFollowedAt   DateTime?
+  nextFollowUpAt   DateTime?
+  event            Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  salesperson      Salesperson     @relation(fields: [salespersonId], references: [id])
+  followUps        FollowUpRecord[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([eventId, phone])
+  @@index([salespersonId])
+  @@index([purchaseIntent])
+  @@index([status])
+}
+
+model FollowUpRecord {
+  id             String     @id @default(cuid())
+  leadId         String
+  operatorUserId String?
+  result         String
+  status         String?
+  nextFollowUpAt DateTime?
+  createdAt      DateTime   @default(now())
+  lead           Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+}
+
+model Reminder {
+  id        String   @id @default(cuid())
+  eventId   String
+  content   String
+  sendAt    DateTime
+  sentAt    DateTime?
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sendAt, sentAt])
+}
+
+model SecureSetting {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
