@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String       @id @default(cuid())
+  name         String
+  email        String       @unique
+  passwordHash String
+  role         String
+  salesperson  Salesperson?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model Event {
+  id                 String          @id @default(cuid())
+  name               String
+  location           String?
+  targetLeads        Int             @default(0)
+  startsAt           DateTime
+  endsAt             DateTime
+  broadcastStartTime String          @default("09:00")
+  broadcastEndTime   String          @default("18:00")
+  dailySummaryTime   String          @default("18:00")
+  privacyText        String          @default("我同意主办方及参展企业基于本次展会沟通目的，通过电话、微信或短信与我联系。")
+  isActive           Boolean         @default(true)
+  salespeople        Salesperson[]
+  leads              Lead[]
+  reminders          Reminder[]
+  botMessageLogs     BotMessageLog[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+}
+
+model Salesperson {
+  id          String   @id @default(cuid())
+  userId      String?  @unique
+  eventId     String
+  name        String
+  phone       String?
+  team        String?
+  publicToken String   @unique
+  targetLeads Int      @default(0)
+  isActive    Boolean  @default(true)
+  user        User?    @relation(fields: [userId], references: [id])
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  leads       Lead[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([eventId])
+}
+
+model Lead {
+  id                 String           @id @default(cuid())
+  eventId            String
+  salespersonId      String
+  name               String
+  phone              String
+  company            String?
+  title              String?
+  wechat             String?
+  interestedProduct  String?
+  purchaseIntent     String           @default("UNKNOWN")
+  note               String?
+  consentToContact   Boolean
+  status             String           @default("UNFOLLOWED")
+  suspicious         Boolean          @default(false)
+  submittedAt        DateTime         @default(now())
+  lastFollowedAt     DateTime?
+  nextFollowUpAt     DateTime?
+  event              Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  salesperson        Salesperson      @relation(fields: [salespersonId], references: [id])
+  followUps          FollowUpRecord[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([eventId, phone])
+  @@index([salespersonId])
+  @@index([purchaseIntent])
+  @@index([status])
+  @@index([suspicious])
+}
+
+model FollowUpRecord {
+  id             String   @id @default(cuid())
+  leadId         String
+  operatorUserId String?
+  result         String
+  status         String?
+  nextFollowUpAt DateTime?
+  createdAt      DateTime @default(now())
+  lead           Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+}
+
+model Reminder {
+  id        String   @id @default(cuid())
+  eventId   String
+  content   String
+  sendAt    DateTime
+  sentAt    DateTime?
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sendAt, sentAt])
+}
+
+model SecureSetting {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BotMessageLog {
+  id            String    @id @default(cuid())
+  eventId       String?
+  type          String
+  content       String
+  status        String    @default("PENDING")
+  failureReason String?
+  retryCount    Int       @default(0)
+  sentAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  event         Event?    @relation(fields: [eventId], references: [id], onDelete: SetNull)
+
+  @@index([eventId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+}
